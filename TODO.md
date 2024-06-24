@@ -1,6 +1,3 @@
-- Add ASG Delete Custom Resource
-- Add Variables for:
-  - Model
-  - VAD
-  - Min chunk time
-  - Max chunk time
+- Fix NextJS env variables issue
+- Fix Sample rate issue in Firefox
+- Reduce permissions on appRunner

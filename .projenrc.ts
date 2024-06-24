@@ -31,7 +31,7 @@ const project = new awscdk.AwsCdkTypeScriptApp({
 });
 
 project.addTask('launch', {
-  exec: 'yarn cdk deploy --require-approval never && yarn writeDistributionDomain',
+  exec: 'yarn cdk deploy --require-approval never',
 });
 
 project.tsconfigDev.file.addOverride('include', [
