@@ -31,13 +31,13 @@ export class VPCResources extends Construct {
       'applicationLoadBalancerSecurityGroup',
       {
         vpc: this.vpc,
-        description: 'Security Group for KVS Producer ALB',
+        description: 'Security Group for ALB',
       },
     );
 
     this.loadBalancerSecurityGroup.addIngressRule(
       Peer.anyIpv4(),
-      Port.tcp(50051),
+      Port.tcp(8765),
     );
   }
 }

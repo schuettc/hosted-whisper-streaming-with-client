@@ -34,17 +34,8 @@ project.addTask('launch', {
   exec: 'yarn cdk deploy --require-approval never && yarn writeDistributionDomain',
 });
 
-project.addTask('getDistributionDomain', {
-  exec: "aws cloudformation describe-stacks --stack-name HostedWhisperStreaming --region us-east-1 --query 'Stacks[0].Outputs[?OutputKey==`target`].OutputValue' --output text",
-});
-
-project.addTask('writeDistributionDomain', {
-  exec: 'echo TARGET=$(yarn run --silent getDistributionDomain) > ./client/.env && echo PORT=50051 >> ./client/.env',
-});
-
 project.tsconfigDev.file.addOverride('include', [
   'src/**/*.ts',
-  'client/*.ts',
   './.projenrc.ts',
 ]);
 

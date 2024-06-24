@@ -8,6 +8,7 @@ import { Construct } from 'constructs';
 
 interface CertificateResourceProps {
   domainName: string;
+  hostName: string;
 }
 export class CertificateResources extends Construct {
   public readonly certificate: Certificate;
@@ -21,7 +22,7 @@ export class CertificateResources extends Construct {
     });
 
     this.certificate = new Certificate(this, 'Certificate', {
-      domainName: `whisper.${props.domainName}`,
+      domainName: `${props.hostName}.${props.domainName}`,
       validation: CertificateValidation.fromDns(this.hostedZone),
     });
   }

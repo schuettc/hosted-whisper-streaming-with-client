@@ -24,10 +24,6 @@
         }
       ]
     },
-    "bundle": {
-      "name": "bundle",
-      "description": "Prepare assets"
-    },
     "clobber": {
       "name": "clobber",
       "description": "hard resets to HEAD of origin and cleans the local repo",
@@ -62,7 +58,15 @@
     },
     "compile": {
       "name": "compile",
-      "description": "Only compile"
+      "description": "Only compile",
+      "steps": [
+        {
+          "exec": "tsc --build"
+        },
+        {
+          "exec": "next build"
+        }
+      ]
     },
     "default": {
       "name": "default",
@@ -73,32 +77,12 @@
         }
       ]
     },
-    "deploy": {
-      "name": "deploy",
-      "description": "Deploys your CDK app to the AWS cloud",
+    "dev": {
+      "name": "dev",
+      "description": "Starts the Next.js application in development mode",
       "steps": [
         {
-          "exec": "cdk deploy",
-          "receiveArgs": true
-        }
-      ]
-    },
-    "destroy": {
-      "name": "destroy",
-      "description": "Destroys your cdk app in the AWS cloud",
-      "steps": [
-        {
-          "exec": "cdk destroy",
-          "receiveArgs": true
-        }
-      ]
-    },
-    "diff": {
-      "name": "diff",
-      "description": "Diffs the currently deployed app against your code",
-      "steps": [
-        {
-          "exec": "cdk diff"
+          "exec": "next dev"
         }
       ]
     },
@@ -114,13 +98,12 @@
         }
       ]
     },
-    "eslint": {
-      "name": "eslint",
-      "description": "Runs eslint against the codebase",
+    "export": {
+      "name": "export",
+      "description": "Exports the application for production deployment",
       "steps": [
         {
-          "exec": "eslint --ext .ts,.tsx --fix --no-error-on-unmatched-pattern $@ src test build-tools projenrc .projenrc.ts",
-          "receiveArgs": true
+          "exec": "next export"
         }
       ]
     },
@@ -142,26 +125,13 @@
         }
       ]
     },
-    "launch": {
-      "name": "launch",
-      "steps": [
-        {
-          "exec": "yarn cdk deploy --require-approval never && yarn writeDistributionDomain"
-        }
-      ]
-    },
     "package": {
       "name": "package",
       "description": "Creates the distribution package"
     },
     "post-compile": {
       "name": "post-compile",
-      "description": "Runs after successful compilation",
-      "steps": [
-        {
-          "spawn": "synth:silent"
-        }
-      ]
+      "description": "Runs after successful compilation"
     },
     "post-upgrade": {
       "name": "post-upgrade",
@@ -171,32 +141,27 @@
       "name": "pre-compile",
       "description": "Prepare the project for compilation"
     },
-    "synth": {
-      "name": "synth",
-      "description": "Synthesizes your cdk app into cdk.out",
+    "server": {
+      "name": "server",
+      "description": "Starts the Next.js application in production mode",
       "steps": [
         {
-          "exec": "cdk synth"
+          "exec": "next start"
         }
       ]
     },
-    "synth:silent": {
-      "name": "synth:silent",
-      "description": "Synthesizes your cdk app into cdk.out and suppresses the template in stdout (part of \"yarn build\")",
+    "telemetry": {
+      "name": "telemetry",
+      "description": "Checks the status of Next.js telemetry collection",
       "steps": [
         {
-          "exec": "cdk synth -q"
+          "exec": "next telemetry"
         }
       ]
     },
     "test": {
       "name": "test",
-      "description": "Run tests",
-      "steps": [
-        {
-          "spawn": "eslint"
-        }
-      ]
+      "description": "Run tests"
     },
     "upgrade": {
       "name": "upgrade",
@@ -206,13 +171,13 @@
       },
       "steps": [
         {
-          "exec": "npx npm-check-updates@16 --upgrade --target=minor --peer --dep=dev,peer,prod,optional --filter=esbuild,eslint-import-resolver-typescript,eslint-plugin-import,projen,ts-node,typescript,dotenv"
+          "exec": "npx npm-check-updates@16 --upgrade --target=minor --peer --dep=dev,peer,prod,optional --filter=@types/react,@types/react-dom,projen,ts-node,typescript,@aws-sdk/client-bedrock-runtime,@aws-sdk/client-chime-sdk-meetings,@cloudscape-design/components,@cloudscape-design/global-styles,@emotion/is-prop-valid,amazon-chime-sdk-component-library-react,amazon-chime-sdk-js,next,react,react-dom,styled-components,styled-system"
         },
         {
           "exec": "yarn install --check-files"
         },
         {
-          "exec": "yarn upgrade @types/node @typescript-eslint/eslint-plugin @typescript-eslint/parser aws-cdk esbuild eslint-import-resolver-typescript eslint-plugin-import eslint projen ts-node typescript aws-cdk-lib constructs dotenv"
+          "exec": "yarn upgrade @types/node @types/react @types/react-dom constructs projen ts-node typescript @aws-sdk/client-bedrock-runtime @aws-sdk/client-chime-sdk-meetings @cloudscape-design/components @cloudscape-design/global-styles @emotion/is-prop-valid amazon-chime-sdk-component-library-react amazon-chime-sdk-js next react react-dom styled-components styled-system"
         },
         {
           "exec": "npx projen"
@@ -224,13 +189,10 @@
     },
     "watch": {
       "name": "watch",
-      "description": "Watches changes in your source code and rebuilds and deploys to the current account",
+      "description": "Watch & compile in the background",
       "steps": [
         {
-          "exec": "cdk deploy --hotswap"
-        },
-        {
-          "exec": "cdk watch"
+          "exec": "tsc --build -w"
         }
       ]
     }

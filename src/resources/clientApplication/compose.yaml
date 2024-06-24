@@ -1,0 +1,14 @@
+services:
+  whisper-client:
+    network_mode: 'bridge'
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '3000:3000'
+    environment:
+      - NEXT_PUBLIC_WHISPER_SERVER_HOST=welsh.schuettc.dev
+      - NEXT_PUBLIC_WHISPER_SERVER_PORT=8765
+      - AWS_PROFILE=isengard
+    volumes:
+      - ~/.aws/:/root/.aws:ro

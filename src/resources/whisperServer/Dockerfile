@@ -20,6 +20,6 @@ COPY --from=builder /root/.local /root/.local
 COPY src/* ./
 RUN chmod +x /entrypoint.sh
 
-EXPOSE 50051
+EXPOSE 8765 8080
 
 ENTRYPOINT ["/entrypoint.sh"]

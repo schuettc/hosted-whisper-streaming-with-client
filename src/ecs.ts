@@ -1,3 +1,4 @@
+import { Size } from 'aws-cdk-lib';
 import { AutoScalingGroup } from 'aws-cdk-lib/aws-autoscaling';
 import { Certificate } from 'aws-cdk-lib/aws-certificatemanager';
 import {
@@ -9,6 +10,7 @@ import {
   LaunchTemplate,
   BlockDeviceVolume,
   UserData,
+  EbsDeviceVolumeType,
 } from 'aws-cdk-lib/aws-ec2';
 import {
   AmiHardwareType,
@@ -20,13 +22,15 @@ import {
   Ec2TaskDefinition,
   EcsOptimizedImage,
   NetworkMode,
+  ServiceManagedVolume,
+  FileSystemType,
 } from 'aws-cdk-lib/aws-ecs';
 import {
   ApplicationLoadBalancer,
   ApplicationProtocol,
   ApplicationTargetGroup,
-  ApplicationProtocolVersion,
   ListenerCertificate,
+  Protocol,
 } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import { ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { ARecord, IHostedZone, RecordTarget } from 'aws-cdk-lib/aws-route53';
@@ -39,6 +43,7 @@ interface ECSResourcesProps {
   loadBalancerSecurityGroup: SecurityGroup;
   certificate: Certificate;
   hostedZone: IHostedZone;
+  hostName: string;
   model: string;
 }
 
@@ -129,7 +134,19 @@ export class ECSResources extends Construct {
       networkMode: NetworkMode.BRIDGE,
     });
 
-    taskDefinition.addContainer('HostedWhisperStreaming', {
+    const volume = new ServiceManagedVolume(this, 'RecordingsVolume', {
+      name: 'recordings',
+      managedEBSVolume: {
+        size: Size.gibibytes(20), // Adjust size as needed
+        volumeType: EbsDeviceVolumeType.GP3,
+        fileSystemType: FileSystemType.XFS,
+        encrypted: true, // Optional: Enable encryption
+      },
+    });
+
+    taskDefinition.addVolume(volume);
+
+    const container = taskDefinition.addContainer('HostedWhisperStreaming', {
       image: ContainerImage.fromAsset('src/resources/whisperServer'),
       environment: {
         LOG_LEVEL: props.logLevel,
@@ -138,8 +155,16 @@ export class ECSResources extends Construct {
       gpuCount: 1,
       memoryLimitMiB: 4096,
       cpu: 2048,
-      portMappings: [{ containerPort: 50051, hostPort: 50051 }],
+      portMappings: [
+        { containerPort: 8765, hostPort: 8765 },
+        { containerPort: 8080, hostPort: 8080 },
+      ],
       logging: new AwsLogDriver({ streamPrefix: 'HostedWhisperStreaming' }),
+    });
+
+    volume.mountIn(container, {
+      containerPath: '/app/recordings',
+      readOnly: false,
     });
 
     this.ecsService = new Ec2Service(this, 'ECSService', {
@@ -150,43 +175,51 @@ export class ECSResources extends Construct {
       ],
     });
 
+    this.ecsService.addVolume(volume);
+
     ecsServiceSecurityGroup.connections.allowFrom(
       props.loadBalancerSecurityGroup,
-      Port.tcp(50051),
+      Port.tcp(8765),
     );
 
-    const grpcServerTargetGroup = new ApplicationTargetGroup(
+    ecsServiceSecurityGroup.connections.allowFrom(
+      props.loadBalancerSecurityGroup,
+      Port.tcp(8080),
+    );
+
+    const whisperServerTargetGroup = new ApplicationTargetGroup(
       this,
-      'gRPCServerTargetGroup',
+      'whisperServerTargetGroup',
       {
         vpc: props.vpc,
-        port: 50051,
+        port: 8765,
         protocol: ApplicationProtocol.HTTP,
-        protocolVersion: ApplicationProtocolVersion.GRPC,
         targets: [
           this.ecsService.loadBalancerTarget({
             containerName: 'HostedWhisperStreaming',
-            containerPort: 50051,
+            containerPort: 8765,
           }),
         ],
         healthCheck: {
-          healthyGrpcCodes: '12',
+          path: '/healthcheck',
+          protocol: Protocol.HTTP,
+          port: '8080',
         },
       },
     );
 
-    this.applicationLoadBalancer.addListener('gRPCListener', {
-      port: 50051,
+    this.applicationLoadBalancer.addListener('whisperListener', {
+      port: 8765,
       protocol: ApplicationProtocol.HTTPS,
       certificates: [
         ListenerCertificate.fromCertificateManager(props.certificate),
       ],
-      defaultTargetGroups: [grpcServerTargetGroup],
+      defaultTargetGroups: [whisperServerTargetGroup],
     });
 
-    new ARecord(this, 'grpcARecord', {
+    new ARecord(this, 'whisperARecord', {
       zone: props.hostedZone,
-      recordName: 'whisper',
+      recordName: props.hostName,
       target: RecordTarget.fromAlias(
         new LoadBalancerTarget(this.applicationLoadBalancer),
       ),

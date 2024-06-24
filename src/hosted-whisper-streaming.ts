@@ -1,16 +1,22 @@
 import { App, CfnOutput, Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { config } from 'dotenv';
-import { ECSResources, VPCResources, CertificateResources } from '.';
+import {
+  ECSResources,
+  VPCResources,
+  CertificateResources,
+  AppRunnerResources,
+} from '.';
 config();
 
 interface HostedWhisperStreamingProps extends StackProps {
   logLevel: string;
   domainName: string;
+  hostName: string;
   model: string;
 }
 
-export class HostedWhisperStreaming extends Stack {
+export class HostedWhisperStreamingWithClient extends Stack {
   constructor(
     scope: Construct,
     id: string,
@@ -20,6 +26,9 @@ export class HostedWhisperStreaming extends Stack {
 
     if (!props.domainName) {
       throw new Error('Domain Name is required');
+    }
+    if (!props.hostName) {
+      throw new Error('Host Name is required');
     }
 
     if (props.model) {
@@ -45,6 +54,7 @@ export class HostedWhisperStreaming extends Stack {
       'CertificateResources',
       {
         domainName: props.domainName,
+        hostName: props.hostName,
       },
     );
     const vpcResources = new VPCResources(this, 'VPCResources');
@@ -55,10 +65,21 @@ export class HostedWhisperStreaming extends Stack {
       certificate: certificateResources.certificate,
       hostedZone: certificateResources.hostedZone,
       model: props.model,
+      hostName: props.hostName,
     });
 
-    new CfnOutput(this, 'target', {
-      value: `whisper.${props.domainName}`,
+    const appRunnerResources = new AppRunnerResources(
+      this,
+      'AppRunnerResources',
+      {
+        whisperServerHost: `${props.hostName}.${props.domainName}`,
+        whisperServerPort: '8765',
+      },
+    );
+
+    new CfnOutput(this, 'AppRunnerServiceUrl', {
+      value: appRunnerResources.appRunnerService.attrServiceUrl,
+      description: 'URL of the App Runner service',
     });
   }
 }
@@ -72,11 +93,12 @@ const stackProps = {
   logLevel: process.env.LOG_LEVEL || 'INFO',
   model: process.env.MODEL || 'base',
   domainName: process.env.DOMAIN_NAME || '',
+  hostName: process.env.HOST_NAME || '',
 };
 
 const app = new App();
 
-new HostedWhisperStreaming(app, 'HostedWhisperStreaming', {
+new HostedWhisperStreamingWithClient(app, 'HostedWhisperStreamingWithClient', {
   ...stackProps,
   env: devEnv,
 });

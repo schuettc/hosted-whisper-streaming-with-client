@@ -1,0 +1,55 @@
+.transcription-container {
+  height: 400px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 10px;
+}
+
+.transcription-item {
+  display: flex;
+  margin-bottom: 10px;
+}
+
+.transcription-item-local {
+  justify-content: flex-end;
+}
+
+.transcription-item-remote {
+  justify-content: flex-start;
+}
+
+.transcription-bubble {
+  max-width: 70%;
+  padding: 10px;
+  border-radius: 10px;
+  color: white;
+}
+
+.transcription-bubble-local {
+  background-color: #007bff;
+}
+
+.transcription-bubble-remote {
+  background-color: #6c757d;
+}
+
+.transcription-text {
+  margin-top: 8px;
+}
+
+.language-label {
+  font-weight: bold;
+  font-size: 0.8em;
+  margin-bottom: 2px;
+}
+
+.welsh-text {
+  font-style: italic;
+  color: #ffd700; /* Gold color for Welsh */
+}
+
+.english-text {
+  font-weight: 500;
+  color: #ffffff; /* White color for English */
+}
