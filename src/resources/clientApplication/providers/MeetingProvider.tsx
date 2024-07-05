@@ -80,7 +80,10 @@ export const MeetingProvider: React.FC<MeetingProviderProps> = ({
   function startAudioStreaming() {
     return new Promise<void>(async (resolve, reject) => {
       try {
-        socketRef.current = new WebSocket(config.getWebSocketUrl());
+        console.log('Config before WebSocket initialization:', config);
+        const wsUrl = config.getWebSocketUrl();
+        console.log('WebSocket URL:', wsUrl);
+        socketRef.current = new WebSocket(wsUrl);
 
         socketRef.current.onopen = () => {
           console.log('Connected to server');

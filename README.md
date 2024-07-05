@@ -1,12 +1,12 @@
 # ECS Hosted Whisper Streaming using gRPC
 
-In this demo, we will see how to build an application that will accept streaming audio sent via gRPC and have the audio transcribed using [OpenAI Whisper](https://openai.com/research/whisper). This demo builds off of the previous [gRPC Streaming Audio with Node](https://subaud.io/blog/node-grpc-server) blog post. However, in this demo, the ECS uses an [EC2 based deployment that supports GPUs](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-gpu.html). This requires several changes to the deployment that will be highlighted.
+In this demo, we will see how to build an application that will accept streaming audio sent via Websockets and have the audio transcribed using [OpenAI Whisper](https://openai.com/research/whisper). This demo builds off of the previous [gRPC Streaming Audio with Node](https://subaud.io/blog/node-grpc-server) blog post and [hosted-whisper-streaming](https://github.com/schuettc/hosted-whisper-streaming). In this demo, the ECS uses an [EC2 based deployment that supports GPUs](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-gpu.html) and includes a client that can be used with multiple participants using the Amazon Chime SDK. This requires several changes to the deployment that will be highlighted.
 
 ## Overview
 
-![Overview](/images/StreamingWhisper.png)
+![Overview](/images/StreamingWhisperWithClient.png)
 
-The basic concepts of the previous [gRPC Streaming Audio with Node](https://subaud.io/blog/node-grpc-server) remain largely the same. An audio stream will be generated from a local gRPC client and sent to a gRPC server hosted in [Amazon Elastic Container Service (ECS)](https://aws.amazon.com/ecs/). The server will transcribe the audio and return the results to the gRPC client. While the previous model used a Fargate hosted container, this demo uses an EC2 deployed container in order to use a GPU. Additionally, while the previous model used [Amazon Transcribe](https://aws.amazon.com/transcribe/) to provide the Speech To Text processing, this uses Whisper as the ASR and is included in the container that is built and deployed.
+The basic concepts of the previous [gRPC Streaming Audio with Node](https://subaud.io/blog/node-grpc-server) and [hosted-whisper-streaming](https://github.com/schuettc/hosted-whisper-streaming) remain largely the same. An audio stream will be generated from a hosted Websocket client and sent to a Websockets server hosted in [Amazon Elastic Container Service (ECS)](https://aws.amazon.com/ecs/). The server will transcribe the audio and return the results to the client.
 
 ## ECS Deployment
 
@@ -129,24 +129,32 @@ python3 server.py
 
 ## Whisper Server
 
-The server starts with two Servicers - AudioTranscriberServicer and HealthCheckServicer. The HealthCheckServicer is used to validate to the Application Load Balancer
+The Whisper server is started and audio chunks are delivered to the transcribe_handler.
 
 ```python
-def serve():
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    audio_transcriber_pb2_grpc.add_AudioTranscriberServiceServicer_to_server(
-        AudioTranscriberServicer(), server
+async def start_server():
+    # Create an aiohttp application
+    app = web.Application()
+    app.router.add_get("/healthcheck", healthcheck)
+
+    # Start the aiohttp server
+    runner = web.AppRunner(app)
+    await runner.setup()
+    http_site = web.TCPSite(runner, "0.0.0.0", 8080)
+    await http_site.start()
+    logger.info(f"HTTP server started on http://0.0.0.0:8080")
+
+    # Start the WebSocket server
+    ws_server = await websockets.serve(transcribe_handler, "0.0.0.0", 8765)
+    logger.info(f"WebSocket server started on ws://0.0.0.0:8765")
+
+    # Run both servers concurrently
+    await asyncio.gather(
+        ws_server.wait_closed(), asyncio.Future()  # This will run forever
     )
-    audio_transcriber_pb2_grpc.add_HealthCheckServiceServicer_to_server(
-        HealthCheckServicer(), server
-    )
-    server.add_insecure_port("[::]:50051")
-    server.start()
-    logger.info("Server started. Listening on port 50051.")
-    server.wait_for_termination()
 ```
 
-The AudioTranscriberServicer will be used to process the audio stream and return the transcriptions to the gRPC client. Whisper does not natively support streaming audio, so we must break the streamed audio into chunks that Whisper can use. To do this, audio processor will process the audio frames and use VAD to detect speech segments. These frames are buffered until a non-speech frame is encountered. When this happens, the frames are joined into a chunk. If the chunk is long enough, it is processed by [faster-whisper](https://github.com/SYSTRAN/faster-whisper) using the `large-v2` model. This allows for rapid transcription of streaming audio while allowing Whisper to provide the best results.
+The AudioTranscriberServicer will be used to process the audio stream and return the transcriptions to the client. Whisper does not natively support streaming audio, so we must break the streamed audio into chunks that Whisper can use. To do this, audio processor will process the audio frames and use VAD to detect speech segments. These frames are buffered until a non-speech frame is encountered. When this happens, the frames are joined into a chunk. If the chunk is long enough, it is processed by [faster-whisper](https://github.com/SYSTRAN/faster-whisper) using a model. This allows for rapid transcription of streaming audio while allowing Whisper to provide the best results.
 
 ## Notes and Warnings
 
@@ -156,7 +164,13 @@ Because this deployment uses GPU based instance(s), be sure to check the [prices
 
 ## Testing
 
-This demo requires a [domain hosted in Route 53](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/registrar.html) so that a certificate can be associated with the [Application Load Balancer](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html#target-group-protocol-version) listener. To configure the domain within the deployment, create a `.env` file with a `DOMAIN_NAME=` associated with a [Hosted Zone Name](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/hosted-zones-working-with.html) in the account.
+This demo requires a [domain hosted in Route 53](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/registrar.html) so that a certificate can be associated with the [Application Load Balancer](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html#target-group-protocol-version) listener. To configure the domain within the deployment, create a `.env` file with a `DOMAIN_NAME=` associated with a [Hosted Zone Name](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/hosted-zones-working-with.html) in the account. We will also use a `HOST_NAME=` to identify the host name. The `.env` should look like this:
+
+```
+HOST_NAME=transcriber
+DOMAIN_NAME=example.com
+MODEL=large
+```
 
 Once the `.env` has been configured, you can deploy the CDK from the cloned repo:
 
@@ -164,15 +178,13 @@ Once the `.env` has been configured, you can deploy the CDK from the cloned repo
 yarn deploy
 ```
 
-After deploying the CDK, you can test the functionality by running the included client. This client will capture audio from your microphone and stream it to the server using gRPC. Output from the CDK will be used to configure the client in the `/client/.env` file. To run the client:
+### Client
 
-```bash
-cd client
-yarn build
-yarn start
-```
+Also included is a client that can be used with multiple participants using the Amazon Chime SDK. This application is deployed to AppRunner and can be accessed by using the `HostedWhisperStreamingWithClient.AppRunnerServiceUrl` in the CDK output. To use the client, enter a number in the upper box, and click `Join Meeting`. Others can join the same meeting by entering the same number on their client.
 
-![ClientStreaming](/images/CLIExample.gif)
+## Translation
+
+Also included is a mechanism to Translate the Transcript using Amazon Bedrock. In this demo, it will only translate between English and Welsh, but other languages could be configured. The client receives the transcription from the Whisper server and makes a request to Bedrock for the translation of that. Once the translation is complete, both native language and translated language are sent to the other participants through the Amazon Chime SDK data messaging feature. The result is that all parties will be able to see the original and translated language in their client.
 
 ## Cleanup
 

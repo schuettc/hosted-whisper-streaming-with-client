@@ -4,6 +4,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_WHISPER_SERVER_HOST=welsh.schuettc.dev
+        - NEXT_PUBLIC_WHISPER_SERVER_PORT=8765
     ports:
       - '3000:3000'
     environment:

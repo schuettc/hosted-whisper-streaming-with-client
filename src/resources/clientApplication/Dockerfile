@@ -13,13 +13,16 @@ RUN yarn install --frozen-lockfile
 # Copy the rest of the application code
 COPY . .
 
-ENV NEXT_PUBLIC_WHISPER_SERVER_HOST=${NEXT_PUBLIC_WHISPER_SERVER_HOST}
-ENV NEXT_PUBLIC_WHISPER_SERVER_PORT=${NEXT_PUBLIC_WHISPER_SERVER_PORT}
+# Set build-time arguments for environment variables
+ARG NEXT_PUBLIC_WHISPER_SERVER_HOST
+ARG NEXT_PUBLIC_WHISPER_SERVER_PORT
 
+# Set environment variables
+ENV NEXT_PUBLIC_WHISPER_SERVER_HOST=$NEXT_PUBLIC_WHISPER_SERVER_HOST
+ENV NEXT_PUBLIC_WHISPER_SERVER_PORT=$NEXT_PUBLIC_WHISPER_SERVER_PORT
 
 # Build the Next.js application
 RUN yarn build
-
 
 # Expose the port the app runs on
 EXPOSE 3000

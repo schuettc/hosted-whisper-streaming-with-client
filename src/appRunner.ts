@@ -18,13 +18,16 @@ export class AppRunnerResources extends Construct {
     const imageAsset = new DockerImageAsset(this, 'NextJsAppImage', {
       directory: path.join(__dirname, './resources/clientApplication'),
       file: 'Dockerfile',
+      buildArgs: {
+        NEXT_PUBLIC_WHISPER_SERVER_HOST: props.whisperServerHost,
+        NEXT_PUBLIC_WHISPER_SERVER_PORT: props.whisperServerPort,
+      },
     });
 
     // Create an IAM role for App Runner to access ECR
     const appRunnerRole = new Role(this, 'AppRunnerECRAccessRole', {
       assumedBy: new ServicePrincipal('build.apprunner.amazonaws.com'),
     });
-
     imageAsset.repository.grantPull(appRunnerRole);
 
     const instanceRole = new Role(this, 'AppRunnerInstanceRole', {
@@ -32,7 +35,18 @@ export class AppRunnerResources extends Construct {
     });
     instanceRole.addToPolicy(
       new PolicyStatement({
-        actions: ['*'],
+        actions: [
+          'chime:CreateMeeting',
+          'chime:CreateAttendee',
+          'chime:DeleteMeeting',
+        ],
+        resources: ['*'],
+      }),
+    );
+
+    instanceRole.addToPolicy(
+      new PolicyStatement({
+        actions: ['bedrock:InvokeModel'],
         resources: ['*'],
       }),
     );
