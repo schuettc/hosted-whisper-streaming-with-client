@@ -43,7 +43,7 @@ export class HostedWhisperStreamingWithClient extends Stack {
           'base.en',
           'small.en',
           'large.en',
-          'DewiBrynJones/whisper-large-v3-ft-cy-ct2',
+          'techiaith/whisper-large-v3-ft-cy-ct2',
         ].includes(props.model)
       ) {
         throw new Error('Invalid model');
